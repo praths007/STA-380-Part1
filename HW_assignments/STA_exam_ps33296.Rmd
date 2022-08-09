@@ -1,0 +1,828 @@
+---
+title: "STA Exam - MSBA Summer'22"
+author: 'Prathmesh Savale, UTEID: ps33296'
+date: '2022-07-24'
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE,  warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+These problems are done from the ISLR Edition 1 ebook.
+
+# Book Problems
+# Chapter 2
+
+### Question 10
+
+#### (a) To begin, load in the Boston data set. The Boston data set is
+part of the MASS library in R.
+> library ( MASS)
+Now the data set is contained in the object Boston.
+> Boston
+Read about the data set:
+> ? Boston
+How many rows are in this data set? How many columns? What
+do the rows and columns represent?
+
+```{r 10.a, warning=FALSE, message=FALSE}
+rm(list = ls())
+library(tidyverse)
+library(ISLR)
+library(knitr)
+library(MASS)
+library(ggplot2)
+library(reshape2)
+
+Boston %>% str
+# ?Boston
+```
+This data set has 506 rows and 14 columns. They represent the different attributes associated with Boston housing data such as the crime rate by town, average number of rooms per dwelling etc.
+
+
+#### (b) Make some pairwise scatterplots of the predictors (columns) in this data set. Describe your findings.
+
+```{r 10.b, warning=FALSE, message=FALSE}
+Boston %>% pairs()
+```
+
+* crime rate correlates with age, dis, rad, tax and ptratio
+* zn correlates with indus, nox, age, lstat and black
+* indus correlates with age and dis
+* lstat correlates with medv
+
+#### (c) Are any of the predictors associated with per capita crime rate? If so, explain the relationship.
+
+```{r 10.c, warning=FALSE, message=FALSE}
+df_melt <- melt(Boston,"crim")
+#scatterplot per group
+ggplot(df_melt, aes(crim,value)) +
+  geom_point() +
+  facet_grid(.~variable)
+
+```
+
+* crime rate is higher in areas with higher property tax
+* crime rate is higher in areas where older people live
+* crime rate is higher where proportion of blacks is higher
+* crime rate is higher with higher pupil teacher ratio
+
+#### (d) Do any of the suburbs of Boston appear to have particularly high crime rates? Tax rates? Pupil-teacher ratios? Comment on the range of each predictor.
+
+```{r 10.d, warning=FALSE, message=FALSE}
+Boston %>% summary
+```
+
+1. areas with high black and high tax rate have higher crime rates
+2. pt ratio doesnt affect the crime rate too much
+  + range of crime rate - 88.87 
+  + range of tax rate - 524
+  + range of ptratio - 9.4
+  + range of black - 396.58
+  + since the range of ptratio is less than crime rate, variation in it doesnt affect the crime rate much
+  
+#### (e) How many of the suburbs in this data set bound the Charles river?
+
+```{r 10.e, warning=FALSE, message=FALSE}
+Boston %>% filter(chas > 0) %>% count()
+```
+35 suburbs are bounded to river charles
+
+#### (f) What is the median pupil-teacher ratio among the towns in this data set?
+
+```{r 10.f, warning=FALSE, message=FALSE}
+Boston %>% str
+median  = Boston %>% 
+  dplyr::select(ptratio)  %>% 
+  mutate(Median = median(ptratio))
+
+median$Median[1]
+```
+median is 19.05
+
+#### (g) Which suburb of Boston has lowest median value of owneroccupied homes? What are the values of the other predictors for that suburb, and how do those values compare to the overall ranges for those predictors? Comment on your findings
+
+```{r 10.g, warning=FALSE, message=FALSE}
+Boston %>% 
+  filter(medv == min(medv))
+# there are 2 suburbs that have the least medv in the overall dataset.
+Boston %>% summary
+```
+These have the highest number of elder population and high levels of nox. And have higher levels of ptratio, black, and tax. These are not the best places to live.
+
+#### (h) In this data set, how many of the suburbs average more than seven rooms per dwelling? More than eight rooms per dwelling? Comment on the suburbs that average more than eight rooms per dwelling.
+
+```{r 10.h, warning=FALSE, message=FALSE}
+Boston %>% 
+  filter(rm > 7) %>% count()
+# 64 suburbs average more than 7 rooms per dwelling
+
+Boston %>% 
+  filter(rm > 7) %>% boxplot()
+
+Boston %>% 
+  filter(rm > 8) %>% count()
+# 13 suburbs average more than 8 rooms per dwelling
+
+Boston %>% 
+  filter(rm > 8) %>% boxplot()
+# the taxes and medv on these homes are on the higher side
+# compared to more than 7 rooms per dwelling
+```
+
+------------------------------------------------------------------------
+
+# Chapter 3
+
+### Question 15
+This problem involves the Boston data set, which we saw in the lab
+for this chapter. We will now try to predict per capita crime rate
+using the other variables in this data set. In other words, per capita
+crime rate is the response, and the other variables are the predictors
+
+#### (a) For each predictor, fit a simple linear regression model to predict
+the response. Describe your results. In which of the models is
+there a statistically significant association between the predictor
+and the response? Create some plots to back up your assertions.
+
+```{r 3.15.a, warning=FALSE, message=FALSE}
+rm(list = ls())
+library(MASS)
+library(tidyverse)
+library(knitr)
+library(ggplot2)
+library(reshape2)
+library(broom)
+
+Boston %>% str
+# ?Boston
+
+
+predictorlist = colnames(Boston %>% dplyr::select(-crim))
+
+univariate_reg_betas = data.frame()
+k = 1
+for (i in predictorlist){ 
+  print(i)
+  fit <- lm(paste("crim ~", i[[1]]), data=Boston) 
+  summary_stat = tidy(fit)
+  print(summary_stat)
+  summary_stat = summary_stat %>% dplyr::select(term, estimate) %>% filter(term == i)
+  univariate_reg_betas = rbind(univariate_reg_betas, summary_stat)
+} 
+univariate_reg_betas
+# individually indus, rad, tax, black, lstat and medv have high rsquared. And all metrics are significant (have a pvalue<0.05) except for chas, which isnt significant and its effect can be ignored. the NULL hypothesis for this can be ignored. 
+
+# It makes sense to look only at the correlation between these variables and crime rate
+
+boston_subset = Boston %>% 
+  dplyr::select(crim, indus, rad, tax, black, lstat, medv)
+
+df_melt <- melt(boston_subset,"crim")
+#scatter plot per group
+ggplot(df_melt, aes(crim,value)) +
+  geom_point() +
+  facet_grid(.~variable)
+# These scatter plots show high variability wrt crim rate
+```
+#### (b) Fit a multiple regression model to predict the response using all of the predictors. Describe your results. For which predictors can we reject the null hypothesis H0 : βj = 0?
+
+```{r 3.15.b, warning=FALSE, message=FALSE}
+lm_fit = lm(crim ~., data=Boston) 
+
+lm_fit_tidy = tidy(lm_fit)
+
+lm_fit %>% summary
+```
+We can reject the NULL hypothesis for zn, indus, dis, rad, black and medv variables as they have a a significant p-value
+
+#### (c) How do your results from (a) compare to your results from (b)? Create a plot displaying the univariate regression coefficients from (a) on the x-axis, and the multiple regression coefficients from (b) on the y-axis. That is, each predictor is displayed as a single point in the plot. Its coefficient in a simple linear regression model is shown on the x-axis, and its coefficient estimate in the multiple linear regression model is shown on the y-axis.
+
+```{r 3.15.c, warning=FALSE, message=FALSE}
+mutivariate_reg_betas = lm_fit_tidy %>% dplyr::select(term, estimate) %>% 
+  filter(term != "(Intercept)")
+
+
+plot(x = univariate_reg_betas$estimate, y = mutivariate_reg_betas$estimate)
+text(x = univariate_reg_betas$estimate, y = mutivariate_reg_betas$estimate, labels = univariate_reg_betas$term, pos=3)
+
+```
+
+nox is different in multivariate model compared to univariate. it is 31 in univariate and -10 in multivariate
+
+
+#### (d) Is there evidence of non-linear association between any of the predictors and the response? To answer this question, for each predictor X, fit a model of the form  Y = β0 + β1X + β2X2 + β3X3 + E.
+
+```{r 3.15.d, warning=FALSE, message=FALSE}
+predictorlist = colnames(Boston %>% dplyr::select(-crim))
+
+univariate_poly_reg_betas = data.frame()
+k = 1
+for (i in predictorlist){ 
+  print(i)
+  fit = lm(paste("crim ~", i[[1]], "+ I(",i[[1]],"^2) + I(",i[[1]],"^3)"), data=Boston) 
+  # summary_stat = tidy(fit)
+  print(summary(fit))
+  summary_stat = summary_stat %>% dplyr::select(term, estimate) %>% filter(term == i)
+  univariate_poly_reg_betas = rbind(univariate_poly_reg_betas, summary_stat)
+} 
+
+```
+
+* zn, Indus, Indus^2, Indus^3, nox, nox^2, nox^3, age^2, age^3, dis, dis^2, dis^3, ptratio, ptratio^2, ptratio^3, medv, medv^2, medv^3 are statistically significant.
+
+* chas, rm, rad, tax and their polynomial terms are not significant at all, and none of its polynomial terms are significant
+
+
+------------------------------------------------------------------------
+
+
+# Chapter 6
+
+### Question 9
+
+In this exercise, we will predict the number of applications received using the other variables in the College data set.
+
+#### (a) Split the data set into a training set and a test set.
+
+```{r 6.9.a, warning=FALSE, message=FALSE}
+rm(list = ls())
+library(ISLR)
+library(tidyverse)
+library(glmnet)
+library(pls)
+
+college_dat = College
+
+# splitting dataset with 70:30 split (train-test)
+n = college_dat %>% nrow
+idx = sample(1:n, 0.7*n)
+
+
+train = college_dat[idx,]
+# length of training set
+nrow(train)
+
+test = college_dat[-idx,]
+# length of testing set
+nrow(test)
+
+```
+
+#### (b) Fit a linear model using least squares on the training set, and report the test error obtained.
+
+```{r 6.9.b, warning=FALSE, message=FALSE}
+lm_fit = lm(Apps~., data = train)
+
+
+prediction = predict(lm_fit, test%>% dplyr::select(-Apps))
+
+# MSE Error in lm fit
+MSE_lm = mean((test[, "Apps"] - prediction)^2)
+MSE_lm
+```
+#### (c) Fit a ridge regression model on the training set, with λ chosen by cross-validation. Report the test error obtained
+
+```{r 9.c, message=FALSE, warning=FALSE}
+
+train_mat = model.matrix(Apps~., data=train)
+test_mat = model.matrix(Apps~., data=test)
+grid = 10 ^ seq(4, -2, length=100)
+
+ridge_model = cv.glmnet(train_mat, train[,"Apps"], alpha=0, lambda=grid)
+lambda_best = ridge_model$lambda.min
+lambda_best
+
+
+ridge_prediction = predict(ridge_model, newx=test_mat, s=lambda_best)
+MSE_ridge = mean((test[, "Apps"] - ridge_prediction)^2)
+
+cat(MSE_ridge)
+```
+
+#### (d) Fit a lasso model on the training set, with λ chosen by cross-validation. Report the test error obtained
+
+```{r 6.9.d, message=FALSE, warning=FALSE}
+lasso_model = cv.glmnet(train_mat, train[,"Apps"], alpha=1, lambda=grid)
+lambda_best = lasso_model$lambda.min
+lambda_best
+
+
+lasso_prediction = predict(lasso_model, newx=test_mat, s=lambda_best)
+
+MSE_lasso = mean((test[, "Apps"] - lasso_prediction)^2)
+
+predict(lasso_model, s=lambda_best, type="coefficients")
+
+cat(MSE_lasso)
+```
+
+#### (e) Fit a PCR model on the training set, with M chosen by crossvalidation. Report the test error obtained, along with the value of M selected by cross-validation.
+
+```{r 6.9.e, message=FALSE, warning=FALSE}
+
+pcr_fit = pcr(Apps~., data=train, scale=T, validation="CV")
+
+cat(validationplot(pcr_fit, val_type="MSEP"))
+
+
+pcr_pred = predict(pcr_fit, test, ncomp=8)
+
+MSE_pcr = (mean((test[, "Apps"] - pcr_pred)^2))
+cat(MSE_pcr)
+```
+
+#### (f) Fit a PLS model on the training set, with M chosen by crossvalidation. Report the test error obtained, along with the value of M selected by cross-validation
+
+```{r 6.9.f, message=FALSE, warning=FALSE}
+
+pls_fit = plsr(Apps~., data=train, scale=T, validation="CV")
+
+cat(validationplot(pls_fit, val_type="MSEP"))
+
+pls_pred = predict(pls_fit, test, ncomp=8)
+
+MSE_pls = mean((test[, "Apps"] - pls_pred)^2)
+cat(MSE_pls)
+```
+
+#### (g) Comment on the results obtained. How accurately can we predict the number of college applications received? Is there much difference among the test errors resulting from these five approaches?
+
+Except for PCR, all other predictors are able to predict the Applications pretty accurately
+
+```{r 6.9.g, message=FALSE, warning=FALSE}
+avg = mean(test[, "Apps"])
+mean_variance = mean((test[, "Apps"] - avg)^2)
+
+lm_r2 = 1 - (MSE_lm /mean_variance)
+ridge_r2 = 1 - (MSE_ridge/mean_variance)
+lasso_r2 = 1 - (MSE_lasso/mean_variance)
+pcr_r2 = 1 - (MSE_pcr/mean_variance)
+pls_r2 = 1 - (MSE_pls/mean_variance)
+barplot(c(lm_r2, ridge_r2, lasso_r2, pcr_r2, pls_r2), names.arg=c("OLS", "Ridge", "Lasso", "PCR", "PLS"), main="Test R-squared")
+
+```
+
+------------------------------------------------------------------------
+
+# Chapter 6
+
+### Question 11
+
+In this exercise, we will predict the number of applications received using the other variables in the College data set.
+
+#### (a) Try out some of the regression methods explored in this chapter, such as best subset selection, the lasso, ridge regression, and PCR. Present and discuss results for the approaches that you consider.
+
+```{r 6.11.a, warning=FALSE, message=FALSE}
+rm(list = ls())
+library(MASS)
+library(tidyverse)
+library(glmnet)
+library(pls)
+library(boot)
+
+boston_dat = Boston
+
+set.seed(123)
+# splitting dataset with 70:30 split (train-test)
+n = boston_dat %>% nrow
+idx = sample(1:n, 0.7*n)
+
+
+dfTraining = boston_dat[idx,]
+# length of training set
+nrow(dfTraining)
+
+dfTest = boston_dat[-idx,]
+# length of testing set
+nrow(dfTest)
+
+
+## a. subset selection  #################
+deltas_lm = data.frame(delta1=0, delta2=0)
+for (i in 1:5){
+ lm_fit = glm(crim~., data = dfTraining)
+ deltas_lm[i,] = cv.glm(dfTraining, lm_fit, K=5)$delta
+}
+deltas_lm
+
+
+#step wise regression
+stepwise_lm_fit = stepAIC(lm_fit, direction='both', trace=FALSE)
+
+deltas_stepwise_lm = data.frame(delta1=0, delta2=0)
+for (i in 1:5){
+ stepwise_lm_fit = stepAIC(lm_fit, direction='both', trace=FALSE)
+ deltas_stepwise_lm[i,] = cv.glm(dfTraining, stepwise_lm_fit, K=5)$delta
+}
+deltas_stepwise_lm
+
+
+
+lm_fit %>% summary
+# subset selection/step wise regression has dropped chas, nox, rm, age, tax, ptratio and black predictors
+# signifying that they add any value while predicting the crime rate
+stepwise_lm_fit %>% summary
+
+stepwise_lm_prediction = predict(stepwise_lm_fit, dfTest%>%dplyr::select(-crim))
+
+MSE_stepwise_lm = mean((dfTest[, "crim"] - stepwise_lm_prediction)^2)
+MSE_stepwise_lm
+
+
+# b.lasso #################
+
+train_mat = model.matrix(crim~., data=dfTraining)
+test_mat = model.matrix(crim~., data=dfTest)
+grid = 10 ^ seq(4, -2, length=100)
+
+lasso_model = cv.glmnet(train_mat, dfTraining[,"crim"], alpha=1, lambda=grid)
+lambda_best = lasso_model$lambda.min
+
+lasso_prediction = predict(lasso_model, newx=test_mat, s=lambda_best)
+
+MSE_lasso = mean((dfTest[, "crim"] - lasso_prediction)^2)
+
+predict(lasso_model, s=lambda_best, type="coefficients")
+
+cat(MSE_lasso)
+
+# c. ridge #################
+ridge_model = cv.glmnet(train_mat, dfTraining[,"crim"], alpha=0, lambda=grid)
+lambda_best = ridge_model$lambda.min
+
+
+ridge_prediction = predict(ridge_model, newx=test_mat, s=lambda_best)
+MSE_ridge = mean((dfTest[, "crim"] - ridge_prediction)^2)
+
+cat(MSE_ridge)
+
+
+# d. pcr #################
+
+pcr_fit = pcr(crim~., data=dfTraining, scale=T, validation="CV")
+
+cat(validationplot(pcr_fit, val_type="MSEP"))
+
+
+pcr_pred = predict(pcr_fit, dfTest, ncomp=13)
+
+MSE_pcr = (mean((dfTest[, "crim"] - pcr_pred)^2))
+cat(MSE_pcr)
+
+summary(pcr_fit)
+
+barplot(c(MSE_stepwise_lm, MSE_ridge, MSE_lasso, MSE_pcr), names.arg=c("OLS", "Ridge", "Lasso", "PCR"), main="MSE")
+
+```
+
+Stepwise regression and lasso don't consider chas, tax, indus, zn and black significant while predicting crime rate. Rad and Nox tend to be the most significant predictors for crime rate. While Ridge gives the best out of sample MSE. Lasso and Ridge show the lowest MSE.
+
+
+#### (b) Propose a model (or set of models) that seem to perform well on this data set, and justify your answer. Make sure that you are evaluating model performance using validation set error, crossvalidation, or some other reasonable alternative, as opposed to using training error.
+
+Based on the above models, we would choose Ridge/Lasso as the best model as it gives the lowest MSE. The MSE is calculated on the test sample and we have used cross validation to confirm that the model does not overfit on the training data.
+
+
+#### (c) Does your chosen model involve all of the features in the dataset? Why or why not?
+
+Our model doesnt use all variables, especially Lasso removed the 'age' predictor as it doesnt show any significant impact on crime rate. On similar lines, tax, black, indx and zn also have a very low value (near zero), so the impact of these variables can also be ignored.
+
+------------------------------------------------------------------------
+
+# Chapter 8
+### Question 8
+
+We will seek to predict Sales using regression trees and related approaches, treating the response as a quantitative variable.
+
+#### (a) Split the data set into a training set and a test set.
+
+```{r 8.8.a, warning=FALSE, message=FALSE}
+rm(list = ls())
+library(ISLR)
+library(tidyverse)
+library(rpart)
+library(tree)
+library(randomForest)
+set.seed(101)
+
+carseats_dat = Carseats
+
+# splitting dataset with 70:30 split (train-test)
+n = carseats_dat %>% nrow
+idx = sample(1:n, 0.7*n)
+
+
+train = carseats_dat[idx,]
+# length of training set
+nrow(train)
+
+test = carseats_dat[-idx,]
+# length of testing set
+nrow(test)
+
+```
+
+#### (b) Fit a regression tree to the training set. Plot the tree, and interpret the results. What test error rate do you obtain?
+
+```{r 8.8.b, warning=FALSE, message=FALSE}
+
+train %>% str
+
+tree_fit = tree(Sales ~ ., data = train)
+
+summary(tree_fit)
+
+plot(tree_fit)
+text(tree_fit, pretty=0)
+
+pred_tree = predict(tree_fit, test%>%dplyr::select(-Sales))
+MSE_tree = mean((test[,'Sales'] - pred_tree)^2)
+cat(MSE_tree)
+```
+Test error is 4.915. Out of the 11 variables, 7 are used to make the tree. ShelveLoc appears to be the most important variable because it used in the root node for the tree split followed by Price, which is is used to create splits at the second level of the tree.
+
+#### (c) Use cross-validation in order to determine the optimal level of tree complexity. Does pruning the tree improve the test error rate?
+
+```{r 8.8.c, warning=FALSE, message=FALSE}
+
+cv_tree_fit = cv.tree(tree_fit, FUN = prune.tree)
+par(mfrow = c(1, 2))
+plot(cv_tree_fit$size, cv_tree_fit$dev, type = "b")
+plot(cv_tree_fit$k, cv_tree_fit$dev, type = "b")
+
+
+pruned_tree = prune.tree(tree_fit, best = 8)
+par(mfrow = c(1, 1))
+plot(pruned_tree)
+text(pruned_tree, pretty = 0)
+
+
+pred_pruned_tree = predict(pruned_tree, test%>%dplyr::select(-Sales))
+MSE_pruned_tree = mean((test[,'Sales'] - pred_pruned_tree)^2)
+cat(MSE_pruned_tree)
+```
+Pruning the tree increases test MSE.
+
+#### (d) Use the bagging approach in order to analyze this data. What test error rate do you obtain? Use the importance() function to determine which variables are most important
+
+```{r 8.8.d, warning=FALSE, message=FALSE}
+
+rf_fit = randomForest(Sales ~ ., data = train, importance = T)
+rf_prediction = predict(rf_fit, test%>%dplyr::select(-Sales))
+MSE_rf = mean((test[,'Sales'] - rf_prediction)^2)
+cat(MSE_rf)
+  
+importance(rf_fit)
+
+```
+Random forest/bagging decreases the MSE and improves the model. Most important variables are - ShelveLoc, Price and Advertising.
+
+#### (e) Use random forests to analyze this data. What test error rate do you obtain? Use the importance() function to determine which variables are most important. Describe the effect of m, the number of variables considered at each split, on the error rate obtained.
+
+```{r 8.8.e, warning=FALSE, message=FALSE}
+
+rf_fit = randomForest(Sales ~ ., data = train, importance = T, mtry=3) #increasing mtry improves the model
+rf_prediction = predict(rf_fit, test%>%dplyr::select(-Sales))
+MSE_rf = mean((test[,'Sales'] - rf_prediction)^2)
+cat(MSE_rf)
+  
+importance(rf_fit)
+
+```
+Increasing mtry (sampling number of columns), improves the model and decreases the MSE.
+
+---------------------------------------------
+
+# Chapter 8
+### Question 11
+
+This question uses the Caravan data set.
+
+#### (a) Create a training set consisting of the first 1,000 observations, and a test set consisting of the remaining observations. 
+```{r 8.11.a, warning=FALSE, message=FALSE}
+rm(list = ls())
+library(ISLR)
+library(tidyverse)
+library(gbm)
+set.seed(107)
+
+caravan_dat = Caravan
+# caravan_dat %>% str
+caravan_dat = caravan_dat %>% mutate(purchase_label = ifelse(Purchase == "Yes", 1, 0))
+caravan_dat = caravan_dat %>% dplyr::select(-Purchase)
+
+train = caravan_dat[1:1000,]
+test = caravan_dat[1000:nrow(caravan_dat),]
+```
+
+#### (b) Fit a boosting model to the training set with Purchase as the response and the other variables as predictors. Use 1,000 trees, and a shrinkage value of 0.01. Which predictors appear to be the most important?
+
+```{r 8.11.b, warning=FALSE, message=FALSE}
+
+gbm_fit = gbm(purchase_label ~ ., data = train, n.trees = 1000, shrinkage = 0.01)
+
+summary(gbm_fit)
+
+```
+
+**PPERSAUT** and **MKOOPKLA** is the most important variables
+
+#### (c) Use the boosting model to predict the response on the test data. Predict that a person will make a purchase if the estimated probability of purchase is greater than 20 %. Form a confusion matrix. What fraction of the people predicted to make a purchase do in fact make one? How does this compare with the results obtained from applying KNN or logistic regression to this data set?
+
+```{r 8.11.c, warning=FALSE, message=FALSE}
+set.seed(123)
+gbm_prob = predict(gbm_fit, test %>% dplyr::select(-purchase_label), type ="response")
+gbm_preds = ifelse(gbm_prob > 0.2, 1, 0)
+table(test$purchase_label, gbm_preds)
+
+32/(109 + 32)
+
+# lm fit
+lm_fit = lm(purchase_label ~ ., data = train, family = binomial)
+
+lm_prob = predict(lm_fit, test %>% dplyr::select(-purchase_label), type ="response")
+lm_preds = ifelse(lm_prob > 0.2, 1, 0)
+table(test$purchase_label, lm_preds)
+
+36/(127+36)
+```
+
+22.7% are predicted to purchase in boosting compared to 22% in glm which is lower
+
+----------------------------------------------
+
+# Chapter 10
+
+### Question 7
+In the chapter, we mentioned the use of correlation-based distance
+and Euclidean distance as dissimilarity measures for hierarchical clustering. It turns out that these two measures are almost equivalent: if
+each observation has been centered to have mean zero and standard
+deviation one, and if we let rij denote the correlation between the ith
+and jth observations, then the quantity 1 − rij is proportional to the
+squared Euclidean distance between the ith and jth observations.
+On the USArrests data, show that this proportionality holds.
+Hint: The Euclidean distance can be calculated using the dist() function, and correlations can be calculated using the cor() function.
+
+```{r 10.7.a, warning=FALSE, message=FALSE}
+rm(list = ls())
+library(ISLR)
+library(tidyverse)
+
+set.seed(108)
+
+usarrests_dat = USArrests
+usarrests_dat %>% str
+
+scaled_US_arrests = scale(USArrests)
+
+dist_mat = dist(t(scaled_US_arrests))
+
+# These match with one another so they are in proportion
+1 - cor(usarrests_dat)
+
+dist_mat^2
+
+```
+
+------------------------------------------------------------------
+
+# Exam Problems
+
+### Problem 1: Beauty Pays!
+
+#### 1. Using the data, estimate the effect of “beauty” into course ratings. Make sure to think about the potential many “other determinants”. Describe your analysis and your conclusions.
+
+```{r ext.1.1, warning=FALSE, message=FALSE}
+rm(list = ls())
+library(tidyverse)
+
+set.seed(108)
+
+beauty_dat = as.tibble(read.csv("BeautyData.csv"))
+
+lm_fit = lm(CourseEvals  ~., data=beauty_dat)
+
+summary(lm_fit)
+```
+
+* BeautyScore, female, lower and nonenglish are all significant while predicting the Evaluation Score
+* Beauty affects the evaluation scores significantly
+* Females score lower in evaluations - there is no possible explanation for this
+* non-english speakers will have difficult time in communicating ideas so the scores for them will be lower
+* evaluations from lower division classes are less, because people taking these classes might not be interested in them
+
+
+#### 2. In his paper, Dr. Hamermesh has the following sentence: “Disentangling whether this outcome represents productivity or discrimination is, as with the issue generally, probably impossible”. Using the concepts we have talked about so far, what does he mean by that?
+
+One cannot say with certainty that Beauty affects evaluation scores, there appears to be discrimination against females. But all in all there are many other factors that influence evaluation scores like english speaking, teaching lower division subjects etc. which can affect beauty according to the summary of regression model fit shown in the previous answer
+
+------------------------------------------------------------------
+
+### Problem 2: Housing Price Structure
+
+The file MidCity.xls, available on the class website, contains data on 128 recent sales of houses in a town. For each sale, the file shows the neighborhood in which the house is located, the number of offers made on the house, the square footage, whether the house is made out of brick, the number of bathrooms, the number of bedrooms, and the selling price. Neighborhoods 1 and 2 are more traditional whereas 3 is a more modern, newer and more prestigious part of town. Use regression models to estimate the pricing structure of houses in this town and answer the following questions
+
+#### 1. Is there a premium for brick houses everything else being equal?
+
+```{r ext.2.1, warning=FALSE, message=FALSE}
+rm(list = ls())
+library(tidyverse)
+set.seed(111)
+
+midcity_dat = as.tibble(read.csv("MidCity.csv"))
+# midcity_dat %>% str
+
+midcity_dat = midcity_dat %>% mutate(Brick = ifelse(Brick == "Yes",1,0))
+
+midcity_dat
+
+lm_fit = lm(Price  ~ ., data=midcity_dat)
+
+summary(lm_fit)
+
+```
+
+People are willing to pay premium for a brick home. As Brick is +ve in the summary of lm_fit and its p-value < 0.05 which makes it significant.
+
+#### 2. Is there a premium for houses in neighborhood 3?
+
+```{r ext.2.2, warning=FALSE, message=FALSE}
+# adding dummy for neighborhood 3
+midcity_dat = midcity_dat %>% mutate(Nbhd3 = ifelse(Nbhd == 3,1,0))
+
+lm_fit = lm(Price  ~ ., data=midcity_dat)
+
+summary(lm_fit)
+
+```
+There is a premium for Neighborhood 3. Dummy variable Nbhd3 is positive and has a p-value < 0.05 so it is statistically significant.
+
+#### 3. Is there an extra premium for brick houses in neighborhood 3?
+
+```{r ext.2.3, warning=FALSE, message=FALSE}
+
+# adding dummy for neighborhood 3 and brick houses
+midcity_dat = midcity_dat %>% mutate(Nbhd3_brick = ifelse((Nbhd == 3) & (Brick == 1),1, 0))
+
+
+lm_fit = lm(Price  ~ ., data=midcity_dat)
+
+summary(lm_fit)
+
+```
+
+Nbhd3_brick shows a statistical significance with 95% confidence. So neighborhood 3 with Brick houses do have a premium. But if we consider a broader confidence interval of 99% then it is not statistically significant.
+
+
+#### 4. For the purposes of prediction could you combine the neighborhoods 1 and 2 into a single “older” neighborhood?
+
+```{r ext.2.4, warning=FALSE, message=FALSE}
+
+# adding dummy for neighborhood 3 and brick houses
+midcity_dat_nbhd = midcity_dat %>% mutate(Nbhd2 = ifelse(Nbhd == 2, 1, 0), Nbhd1 = ifelse(Nbhd == 1, 1, 0)) %>% dplyr::select(-c(Nbhd3_brick,  Nbhd))
+
+
+lm_fit = lm(Price  ~ ., data=midcity_dat_nbhd)
+
+summary(lm_fit)
+
+
+```
+
+Nbhd1 in the presence of Nbhd2 and Nbhd3 results in singularity. Therefore Nbhd1 and Nbhd2 can be clubbed together as 'older'.
+
+-------------------------------------------------------------
+
+
+### Problem 3: What causes what??
+
+#### 1. Why can’t I just get data from a few different cities and run the regression of “Crime” on “Police” to understand how more cops in the streets affect crime? (“Crime” refers to some measure of crime rate and “Police” measures the number of cops in a city)
+
+This will not tell us if more police leads to more crime or more crime leads to more police. It will only tell us the correlation between "crime" and "police"
+
+
+#### 2. How were the researchers from UPENN able to isolate this effect? Briefly describe their approach and discuss their result in the “Table 2” below.
+
+The researchers used natural experiment. According to the table crime decreases on high alert and goes up if the METRO ridership goes up. Since criminals will also not venture out in case of an orange alert/terrorist threat. To test this hypothesis they wanted to check if the METRO ridership dips during a terrorist threat. So they decided to use that as a control. 
+
+#### 3. Why did they have to control for METRO ridership? What was that trying to capture?
+
+Eventually they found out that METRO ridership remains unchanged during terrorist threats, so the effect of more cops on causing a decrease in criminals on the street could be significant. Because it was being assumed that criminals might not go out doing crimes during a terrorist alert due to increased cop activity, but this was verified with METRO ridership and this hypothesis was rejected, because METRO ridership was unchanged during high alerts.
+
+#### 4. In the next page, I am showing you “Table 4” from the research paper. Just focus on the first column of the table. Can you describe the model being estimated here? What is the conclusion?
+
+High alert at district 1 (a variable with interaction terms) is highly significant. This tells us that more cops in the district 1 in times of high alert results in decreased criminal activity.
+
+-------------------------------------------------------------
+
+### Problem 5: Final Project
+
+  I contributed by selecting the dataset for our problem and resentation from kaggle and running hyperparameter tuning for XGB using Bayesian optimization and single layer neural net. All the members of our team were responsible for trying out different classification techniques to see which one gives the best accuracy. Our problem statement was to predict credit card approvals. Since this problem has a highly imbalanced class our objective was to optimize for recall rather than the overall accuracy. Therefore we needed to select a modeling technique that outputs a higher recall value irrespective of the class imbalance. Since random forest and logistic regression were not giving us the expected results, we decided to use XGB.  
+  
+  Our dataset contains ~400K rows and ~25 columns (after creating dummies of the categorical columns). Since this is a big dataset, tuning the XGB hyperparameters using grid search or random search took a lot of time and did not output the expected results. Therefore, to work with the limited compute power and time I decided to use Bayesian optimization to find the optimal parameters quickly. the resulting model improved the model AUC from lower ~80% to upper ~90%. This also translated to increasing the recall score significantly after using the correct threhold to distinguish between the positive and negative classes.  
+  
+  After obtaining the required recall value, I decided to try a single layer neural net to see if the model can be improved. Just a single layer neural net was able to output a recall of 65% without any hyperparameter tuning. As the next steps I have decided to use bayesian optmization to tune the deep neural net paramters to improve the model.
